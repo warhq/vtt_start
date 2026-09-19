@@ -1,0 +1,134 @@
+import type { InstanceConfig } from "./instances";
+
+export type StatusColor = "green" | "orange" | "red";
+
+export interface InstanceStatus {
+  id: string;
+  name: string;
+  host: string;
+  /** The /join URL players should be sent to. */
+  url: string;
+  status: StatusColor;
+  imageUrl: string | null;
+  checkedAt: string;
+  detail: string;
+}
+
+const FETCH_TIMEOUT_MS = 6000;
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal, redirect: "follow" });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Foundry's markup for the /join screen background varies a bit between
+// versions and custom themes, so try a handful of patterns before giving up.
+const IMAGE_PATTERNS: RegExp[] = [
+  /background-image\s*:\s*url\((?:"|')?([^"')]+)(?:"|')?\)/i,
+  /--background-image\s*:\s*url\((?:"|')?([^"')]+)(?:"|')?\)/i,
+  /<img[^>]+id=["']background["'][^>]*src=["']([^"']+)["']/i,
+  /<img[^>]+class=["'][^"']*\b(?:splash|background|backdrop)\b[^"']*["'][^>]*src=["']([^"']+)["']/i,
+];
+
+function extractImageUrl(html: string, origin: string): string | null {
+  for (const pattern of IMAGE_PATTERNS) {
+    const match = html.match(pattern);
+    if (match && match[1]) {
+      try {
+        return new URL(match[1], origin).toString();
+      } catch {
+        // malformed match, try the next pattern
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Checks a single Foundry VTT instance and returns its current status.
+ *
+ * Uses Foundry's `/api/status` endpoint (present on modern Foundry) to learn
+ * whether a world is currently active, and independently confirms `/join`
+ * actually responds (as requested: reachability of the login screen itself,
+ * not just the API). Falls back to scraping the `/join` HTML for older
+ * Foundry versions that don't expose `/api/status`.
+ */
+export async function checkInstance(
+  instance: InstanceConfig,
+  previousImageUrl: string | null,
+): Promise<InstanceStatus> {
+  const origin = `https://${instance.host}`;
+  const joinUrl = `${origin}/join`;
+  const checkedAt = new Date().toISOString();
+
+  let apiActive: boolean | null = null;
+  try {
+    const statusResp = await fetchWithTimeout(`${origin}/api/status`);
+    if (statusResp.ok) {
+      const data = (await statusResp.json().catch(() => null)) as { active?: unknown } | null;
+      if (data && typeof data.active === "boolean") {
+        apiActive = data.active;
+      }
+    }
+  } catch {
+    apiActive = null; // endpoint missing/unreachable; fall back to HTML below
+  }
+
+  let joinReachable = false;
+  let html = "";
+  try {
+    const joinResp = await fetchWithTimeout(joinUrl);
+    joinReachable = joinResp.ok;
+    html = await joinResp.text().catch(() => "");
+  } catch {
+    joinReachable = false;
+  }
+
+  let status: StatusColor;
+  let detail: string;
+
+  if (apiActive === true && joinReachable) {
+    status = "green";
+    detail = "Online, en värld är aktiv och /join svarar.";
+  } else if (apiActive === false) {
+    status = "orange";
+    detail = "Online men ingen värld är startad (administrativt läge).";
+  } else if (apiActive === null && joinReachable) {
+    const looksLikeSetup = /id=["']setup["']|game-setup|Configuration &amp; Setup/i.test(html);
+    const looksLikeJoin = /id=["']join-game["']|join-game-form|Join Game Session/i.test(html);
+    if (looksLikeSetup && !looksLikeJoin) {
+      status = "orange";
+      detail = "Online men verkar vara i administrativt/setup-läge (uppskattat).";
+    } else {
+      status = "green";
+      detail = "Online, /join svarar (uppskattat, /api/status saknas).";
+    }
+  } else {
+    status = "red";
+    detail = "Instansen går inte att nå.";
+  }
+
+  let imageUrl: string | null = instance.imageOverride ?? null;
+  if (!imageUrl && html) {
+    imageUrl = extractImageUrl(html, origin);
+  }
+  if (!imageUrl) {
+    imageUrl = previousImageUrl;
+  }
+
+  return {
+    id: instance.id,
+    name: instance.name,
+    host: instance.host,
+    url: joinUrl,
+    status,
+    imageUrl,
+    checkedAt,
+    detail,
+  };
+}
