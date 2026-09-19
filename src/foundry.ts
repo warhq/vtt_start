@@ -37,8 +37,12 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Re
 // Foundry's markup for the /join screen background varies a bit between
 // versions and custom themes, so try a handful of patterns before giving up.
 const IMAGE_PATTERNS: RegExp[] = [
+  // Foundry V12+: e.g. `<style>body.background { --background-url: url("/worlds/<id>/images/....jpg"); }`
+  // Confirmed against a live instance — this is the one that actually
+  // matches current Foundry markup, kept first so it's tried before the
+  // more speculative patterns below.
+  /--[\w-]*background[\w-]*\s*:\s*url\((?:"|')?([^"')]+)(?:"|')?\)/i,
   /background-image\s*:\s*url\((?:"|')?([^"')]+)(?:"|')?\)/i,
-  /--background-image\s*:\s*url\((?:"|')?([^"')]+)(?:"|')?\)/i,
   /<img[^>]+id=["']background["'][^>]*src=["']([^"']+)["']/i,
   /<img[^>]+class=["'][^"']*\b(?:splash|background|backdrop)\b[^"']*["'][^>]*src=["']([^"']+)["']/i,
 ];
