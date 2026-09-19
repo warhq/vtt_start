@@ -32,7 +32,14 @@ function render(instances) {
       el.setAttribute("aria-disabled", "true");
       el.setAttribute("role", "img");
     }
-    el.title = `${inst.name} – ${inst.detail}`;
+    const metaParts = [];
+    if (inst.world) metaParts.push(inst.world);
+    if (inst.system) metaParts.push(inst.system);
+    if (inst.players != null) metaParts.push(`${inst.players} spelare`);
+
+    el.title = metaParts.length
+      ? `${inst.name} – ${inst.detail} (${metaParts.join(", ")})`
+      : `${inst.name} – ${inst.detail}`;
 
     const img = document.createElement("img");
     img.className = "image";
@@ -56,13 +63,25 @@ function render(instances) {
     const label = document.createElement("div");
     label.className = "label";
 
+    const titleRow = document.createElement("div");
+    titleRow.className = "title-row";
+
     const dot = document.createElement("span");
     dot.className = `dot ${inst.status}`;
-    label.appendChild(dot);
+    titleRow.appendChild(dot);
 
     const name = document.createElement("span");
     name.textContent = inst.name;
-    label.appendChild(name);
+    titleRow.appendChild(name);
+
+    label.appendChild(titleRow);
+
+    if (metaParts.length) {
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = metaParts.join(" · ");
+      label.appendChild(meta);
+    }
 
     el.appendChild(label);
     grid.appendChild(el);

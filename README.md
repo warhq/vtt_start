@@ -13,6 +13,10 @@ instans med samma bakgrundsbild som instansens egen inloggningssida
 
 Klick på ett grönt eller orange kort går direkt till instansens `/join`-sida.
 
+När Foundrys `/api/status` svarar visas även kampanjnamn (Foundrys
+`world`-titel), spelsystem (`system`) och antal anslutna spelare (`users`)
+under instansnamnet.
+
 ## Hur det fungerar
 
 Det här är en enda [Cloudflare Worker](https://developers.cloudflare.com/workers/)

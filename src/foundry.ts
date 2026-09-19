@@ -20,6 +20,12 @@ export interface InstanceStatus {
   imageUrl: string | null;
   checkedAt: string;
   detail: string;
+  /** Foundry's world title for the currently active world — the campaign name. */
+  world: string | null;
+  /** Foundry game system id, e.g. "coc7", "pf2e". */
+  system: string | null;
+  /** Number of currently connected users, if Foundry's /api/status reports it. */
+  players: number | null;
 }
 
 const FETCH_TIMEOUT_MS = 6000;
@@ -76,12 +82,23 @@ export async function checkInstance(instance: InstanceConfig): Promise<InstanceS
   const checkedAt = new Date().toISOString();
 
   let apiActive: boolean | null = null;
+  let world: string | null = null;
+  let system: string | null = null;
+  let players: number | null = null;
   try {
     const statusResp = await fetchWithTimeout(`${origin}/api/status`);
     if (statusResp.ok) {
-      const data = (await statusResp.json().catch(() => null)) as { active?: unknown } | null;
-      if (data && typeof data.active === "boolean") {
-        apiActive = data.active;
+      const data = (await statusResp.json().catch(() => null)) as {
+        active?: unknown;
+        world?: unknown;
+        system?: unknown;
+        users?: unknown;
+      } | null;
+      if (data) {
+        if (typeof data.active === "boolean") apiActive = data.active;
+        if (typeof data.world === "string" && data.world) world = data.world;
+        if (typeof data.system === "string" && data.system) system = data.system;
+        if (typeof data.users === "number") players = data.users;
       }
     }
   } catch {
@@ -136,5 +153,8 @@ export async function checkInstance(instance: InstanceConfig): Promise<InstanceS
     imageUrl,
     checkedAt,
     detail,
+    world,
+    system,
+    players,
   };
 }
