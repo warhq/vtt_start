@@ -20,5 +20,4 @@ crons = ["*/2 * * * *"]
 
 [[kv_namespaces]]
 binding = "STATUS_KV"
-# Replace with the id printed by `wrangler kv namespace create STATUS_KV`.
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "57c8d0229d4645f7904d45303667a2ac"
