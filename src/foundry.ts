@@ -26,6 +26,8 @@ export interface InstanceStatus {
   system: string | null;
   /** Number of currently connected users, if Foundry's /api/status reports it. */
   players: number | null;
+  /** Server process uptime in milliseconds, if Foundry's /api/status reports it. */
+  uptimeMs: number | null;
 }
 
 const FETCH_TIMEOUT_MS = 6000;
@@ -85,6 +87,7 @@ export async function checkInstance(instance: InstanceConfig): Promise<InstanceS
   let world: string | null = null;
   let system: string | null = null;
   let players: number | null = null;
+  let uptimeMs: number | null = null;
   try {
     const statusResp = await fetchWithTimeout(`${origin}/api/status`);
     if (statusResp.ok) {
@@ -93,12 +96,14 @@ export async function checkInstance(instance: InstanceConfig): Promise<InstanceS
         world?: unknown;
         system?: unknown;
         users?: unknown;
+        uptime?: unknown;
       } | null;
       if (data) {
         if (typeof data.active === "boolean") apiActive = data.active;
         if (typeof data.world === "string" && data.world) world = data.world;
         if (typeof data.system === "string" && data.system) system = data.system;
         if (typeof data.users === "number") players = data.users;
+        if (typeof data.uptime === "number") uptimeMs = data.uptime;
       }
     }
   } catch {
@@ -156,5 +161,6 @@ export async function checkInstance(instance: InstanceConfig): Promise<InstanceS
     world,
     system,
     players,
+    uptimeMs,
   };
 }

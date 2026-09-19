@@ -14,8 +14,8 @@ instans med samma bakgrundsbild som instansens egen inloggningssida
 Klick på ett grönt eller orange kort går direkt till instansens `/join`-sida.
 
 När Foundrys `/api/status` svarar visas även kampanjnamn (Foundrys
-`world`-titel), spelsystem (`system`) och antal anslutna spelare (`users`)
-under instansnamnet.
+`world`-titel), spelsystem (`system`), antal anslutna spelare (`users`) och
+serverns upptid (`uptime`, visas som "X dagar") under instansnamnet.
 
 ## Hur det fungerar
 

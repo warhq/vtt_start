@@ -1,6 +1,13 @@
 const STATUS_LABEL = { green: "Online", orange: "Admin-läge", red: "Nere" };
 const REFRESH_MS = 30000;
 
+function formatUptime(uptimeMs) {
+  if (uptimeMs == null) return null;
+  const days = Math.floor(uptimeMs / (1000 * 60 * 60 * 24));
+  if (days < 1) return "<1 dag";
+  return `${days} ${days === 1 ? "dag" : "dagar"}`;
+}
+
 async function loadStatus() {
   const grid = document.getElementById("grid");
   try {
@@ -36,6 +43,8 @@ function render(instances) {
     if (inst.world) metaParts.push(inst.world);
     if (inst.system) metaParts.push(inst.system);
     if (inst.players != null) metaParts.push(`${inst.players} spelare`);
+    const uptime = formatUptime(inst.uptimeMs);
+    if (uptime) metaParts.push(`upptid ${uptime}`);
 
     el.title = metaParts.length
       ? `${inst.name} – ${inst.detail} (${metaParts.join(", ")})`
