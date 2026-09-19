@@ -1,0 +1,16 @@
+name = "vtt-status"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[triggers]
+# Poll every 2 minutes. Cheap: only hits /api/status and /join on each instance.
+crons = ["*/2 * * * *"]
+
+[[kv_namespaces]]
+binding = "STATUS_KV"
+# Replace with the id printed by `wrangler kv namespace create STATUS_KV`.
+id = "REPLACE_WITH_KV_NAMESPACE_ID"

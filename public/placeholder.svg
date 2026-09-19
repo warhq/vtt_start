@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" role="img" aria-label="VTT">
+  <rect width="300" height="400" fill="#1c2028" />
+  <g fill="none" stroke="#3a4150" stroke-width="6">
+    <rect x="90" y="140" width="120" height="120" rx="14" transform="rotate(20 150 200)" />
+  </g>
+  <text x="150" y="210" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" fill="#5b6577">VTT</text>
+</svg>

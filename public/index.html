@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VTT-status | nixxon.se</title>
+    <meta name="description" content="Status för Nixxons Foundry VTT-instanser." />
+    <link rel="icon" href="/placeholder.svg" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>VTT-instanser</h1>
+      <p class="subtitle">
+        Status för Nixxons Foundry VTT-instanser. Klicka på en aktiv instans för att gå med.
+      </p>
+    </header>
+    <main id="grid" class="grid" aria-live="polite">
+      <p class="loading">Hämtar status…</p>
+    </main>
+    <footer>
+      <p class="legend">
+        <span class="dot green"></span> Online, går att logga in
+        <span class="dot orange"></span> Online, administrativt läge
+        <span class="dot red"></span> Inte online
+      </p>
+      <p>Senast hämtad: <span id="updated-at">–</span></p>
+    </footer>
+    <script src="/app.js"></script>
+  </body>
+</html>

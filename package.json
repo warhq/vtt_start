@@ -1,0 +1,17 @@
+{
+  "name": "vtt-status",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Statussida för Nixxons Foundry VTT-instanser (vtt.nixxon.se)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "kv:create": "wrangler kv namespace create STATUS_KV"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.90.0"
+  }
+}
