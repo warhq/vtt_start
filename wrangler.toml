@@ -15,8 +15,12 @@ directory = "./public"
 binding = "ASSETS"
 
 [triggers]
-# Poll every 2 minutes. Cheap: only hits /api/status and /join on each instance.
-crons = ["*/2 * * * *"]
+# Every 10 minutes: 5 instances x 144 runs/day = 720 status writes/day to
+# STATUS_KV, comfortably under Cloudflare's free-tier cap of 1,000 KV
+# writes/day/account (a 2-minute schedule would blow through it at ~3,600/day).
+# If you add instances or want tighter freshness, recompute:
+#   writes/day = instance_count * (1440 / interval_minutes)
+crons = ["*/10 * * * *"]
 
 [[kv_namespaces]]
 binding = "STATUS_KV"

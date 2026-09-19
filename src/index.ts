@@ -7,7 +7,10 @@ export interface Env {
   ASSETS: Fetcher;
 }
 
-const STALE_AFTER_MS = 5 * 60 * 1000;
+// Slightly longer than the 10-minute cron interval, so a normal page load
+// doesn't trigger its own extra check-and-write cycle between cron runs —
+// this is only a safety net for a missed cron run, not a second scheduler.
+const STALE_AFTER_MS = 15 * 60 * 1000;
 const INSTANCE_IDS = new Set(INSTANCES.map((instance) => instance.id));
 
 function kvKey(id: string): string {

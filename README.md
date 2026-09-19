@@ -18,8 +18,9 @@ Klick på ett grönt eller orange kort går direkt till instansens `/join`-sida.
 Det här är en enda [Cloudflare Worker](https://developers.cloudflare.com/workers/)
 med statiska assets (`public/`) och ett API-anrop (`/api/status`):
 
-- Ett **cron-triggat** jobb (`src/index.ts`, var 2:a minut, se `wrangler.toml`)
-  går igenom instanserna i `src/instances.ts` och kör `checkInstance()`
+- Ett **cron-triggat** jobb (`src/index.ts`, var 10:e minut, se
+  `wrangler.toml`) går igenom instanserna i `src/instances.ts` och kör
+  `checkInstance()`
   (`src/foundry.ts`) för var och en:
   1. Anropar `https://<host>/api/status` (Foundrys inbyggda status-endpoint)
      för att avgöra om en värld är aktiv (`active: true/false`).
@@ -68,17 +69,28 @@ Du kan sätta en fast käll-bild-URL manuellt per instans genom att lägga till
 `imageOverride: "https://..."` i `src/instances.ts` – den laddas ner och
 cachas på samma sätt som en auto-detekterad bild.
 
-### Notera: KV-writes på Cloudflares gratisplan
+### KV-writes och Cloudflares gratisplan
 
-`status:<id>` skrivs till KV på **varje** cron-körning (var 2:e minut) för
-alla 5 instanser, dvs. ~3 600 writes/dygn. Cloudflares gratisplan för
-Workers KV tillåter 1 000 writes/dygn per konto – med gratisplanen börjar
-statusuppdateringarna alltså fallera efter några timmar. Bild-writes
-(`image-*:<id>`) är däremot villkorade på faktisk innehållsändring och
-påverkar knappt budgeten. Om ni kör på gratisplanen, överväg att glesa ut
-cron-schemat (`wrangler.toml`) eller att bara skriva `status:<id>` när
-statusen faktiskt ändrats. Kör ni Workers Paid-planen (`$5`/månad) är detta
-inget problem – där betalar man per faktisk KV-operation utan dygnstak.
+`status:<id>` skrivs till KV på **varje** cron-körning, oavsett om något
+ändrats. Cloudflares gratisplan för Workers KV tillåter 1 000 writes/dygn
+per konto, så cron-intervallet (`wrangler.toml`) är satt till 10 minuter för
+att hålla sig därunder med marginal:
+
+```
+writes/dygn = antal instanser × (1440 / cron-intervall i minuter)
+            = 5 × (1440 / 10) = 720
+```
+
+Det ger ~28 % marginal upp till gränsen (utrymme för enstaka extra
+skrivningar från `STALE_AFTER_MS`-fallbacken i `src/index.ts`, eller för att
+lägga till någon ytterligare instans). Lägger ni till fler instanser eller
+vill ha tätare uppdateringar, räkna om med formeln ovan och justera
+`crons` i `wrangler.toml` (håll `STALE_AFTER_MS` något högre än
+cron-intervallet, så den bara fungerar som skyddsnät om ett cron-pass
+missas). Bild-writes (`image-*:<id>`) är villkorade på faktisk
+innehållsändring (SHA-256-jämförelse) och påverkar knappt budgeten. Kör ni
+Workers Paid-planen (`$5`/månad) är detta inget problem – där betalar man
+per faktisk KV-operation utan dygnstak, och kan använda ett tätare schema.
 
 ## Lägga till/ändra instanser
 
