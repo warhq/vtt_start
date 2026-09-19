@@ -14,7 +14,20 @@ export interface InstanceConfig {
 }
 
 export const INSTANCES: InstanceConfig[] = [
-  { id: "coc", name: "Call of Cthulhu", host: "coc-vtt.nixxon.se" },
+  {
+    id: "coc",
+    name: "Call of Cthulhu",
+    host: "coc-vtt.nixxon.se",
+    // This instance hasn't been seen in "joinable" state since the image
+    // cache went live, so auto-detection never got a chance to capture its
+    // background. We know the real URL (confirmed from its /join page), so
+    // seed it directly — Foundry serves world asset files even when the
+    // world itself isn't launched. Safe to remove once the cache has
+    // captured a real copy while this instance was green (then
+    // auto-detection takes back over and follows future background
+    // changes).
+    imageOverride: "https://coc-vtt.nixxon.se/worlds/tgom/images/MoN%20Cover%201%20.jpg",
+  },
   { id: "mgt2", name: "Mongoose Traveller 2e", host: "mgt2-vtt.nixxon.se" },
   { id: "pf2e", name: "Pathfinder 2e", host: "pf2e-vtt.nixxon.se" },
   { id: "dod", name: "Drakar och Demoner", host: "dod-vtt.nixxon.se" },
