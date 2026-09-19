@@ -28,30 +28,57 @@ med statiska assets (`public/`) och ett API-anrop (`/api/status`):
      använder.
   3. Äldre Foundry-versioner utan `/api/status` hanteras med en enklare
      fallback som tolkar HTML-svaret från `/join`.
-  4. Resultatet (status, bild-URL, tidsstämpel) cachas i en KV-namespace
-     (`STATUS_KV`).
+  4. Hittas en bakgrundsbild-URL i `/join`-HTML:n, skickas den vidare till
+     `syncInstanceImage()` (`src/images.ts`), som laddar ner bilden,
+     SHA-256-hashar den och bara skriver till KV om den är ny/ändrad
+     jämfört med vad som redan är cachat.
+  5. Resultatet (status, lokal bild-URL, tidsstämpel) cachas i KV-namespace
+     `STATUS_KV`.
 - `/api/status` (anropas av sidan i webbläsaren) läser cachen ur KV och
   returnerar JSON. Om en instans saknar cache (t.ex. direkt efter deploy)
   körs en synkron koll för just den, så sidan aldrig visar ett tomt kort.
+- `/api/image/<instans-id>` servar de faktiska bild-bytesen från KV, med
+  `ETag`/`Cache-Control` för webbläsarcache.
 - Statisk frontend (`public/`) hämtar `/api/status` var 30:e sekund och
-  ritar upp korten.
+  ritar upp korten, med `<img src="/api/image/<id>">`.
 
 Anrop mot instanserna sker alltså **server-side i Workern**, inte från
 besökarens webbläsare – det är nödvändigt eftersom Foundry-servrar normalt
 inte tillåter CORS för sidor på andra domäner.
 
-### Bild-detektion
+### Bild-detektion och -cachning
 
-Bakgrundsbilden hämtas genom att leta efter vanliga mönster i `/join`-HTML:n
-(`background-image: url(...)`, `<img id="background">`, m.fl., se
-`IMAGE_PATTERNS` i `src/foundry.ts`). Foundrys markup kan skilja sig något
-mellan versioner/teman. Om auto-detektion inte hittar något:
+Bakgrundsbildens URL hittas genom att leta efter vanliga mönster i
+`/join`-HTML:n (`background-image: url(...)`, `<img id="background">`, m.fl.,
+se `IMAGE_PATTERNS` i `src/foundry.ts`). Foundrys markup kan skilja sig något
+mellan versioner/teman.
 
-1. Behålls senaste kända bild (cachad i KV), annars
-2. visas `public/placeholder.svg`.
+Själva bildfilen laddas sedan ner och lagras i Workern (`src/images.ts`) –
+sidan hotlinkar alltså **inte** direkt till instansens domän. Det betyder att
+en instans som går ner fortfarande visar sin senast kända bild (nertonad, se
+statuscirkel), istället för en trasig bild. Skrivningar till KV sker bara när
+bildens innehåll faktiskt ändrats (jämfört via hash), inte vid varje
+cron-körning, för att hålla nere antalet KV-writes.
 
-Du kan även sätta en fast bild-URL manuellt per instans genom att lägga till
-`imageOverride: "https://..."` i `src/instances.ts`.
+Om ingen bild någonsin kunnat cachas för en instans visas
+`public/placeholder.svg` istället (hanteras i `public/app.js` via
+`<img>`:ens `onerror`).
+
+Du kan sätta en fast käll-bild-URL manuellt per instans genom att lägga till
+`imageOverride: "https://..."` i `src/instances.ts` – den laddas ner och
+cachas på samma sätt som en auto-detekterad bild.
+
+### Notera: KV-writes på Cloudflares gratisplan
+
+`status:<id>` skrivs till KV på **varje** cron-körning (var 2:e minut) för
+alla 5 instanser, dvs. ~3 600 writes/dygn. Cloudflares gratisplan för
+Workers KV tillåter 1 000 writes/dygn per konto – med gratisplanen börjar
+statusuppdateringarna alltså fallera efter några timmar. Bild-writes
+(`image-*:<id>`) är däremot villkorade på faktisk innehållsändring och
+påverkar knappt budgeten. Om ni kör på gratisplanen, överväg att glesa ut
+cron-schemat (`wrangler.toml`) eller att bara skriva `status:<id>` när
+statusen faktiskt ändrats. Kör ni Workers Paid-planen (`$5`/månad) är detta
+inget problem – där betalar man per faktisk KV-operation utan dygnstak.
 
 ## Lägga till/ändra instanser
 

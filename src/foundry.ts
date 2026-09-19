@@ -9,6 +9,14 @@ export interface InstanceStatus {
   /** The /join URL players should be sent to. */
   url: string;
   status: StatusColor;
+  /**
+   * Where the frontend should load the card image from. Callers of
+   * `checkInstance` should treat this as the *source* image URL found on
+   * the instance's own `/join` page (or its `imageOverride`) and resolve it
+   * through `syncInstanceImage` (see `images.ts`) before exposing it to the
+   * frontend — that step downloads and caches the bytes so the image still
+   * renders while the instance itself is offline.
+   */
   imageUrl: string | null;
   checkedAt: string;
   detail: string;
@@ -58,10 +66,7 @@ function extractImageUrl(html: string, origin: string): string | null {
  * not just the API). Falls back to scraping the `/join` HTML for older
  * Foundry versions that don't expose `/api/status`.
  */
-export async function checkInstance(
-  instance: InstanceConfig,
-  previousImageUrl: string | null,
-): Promise<InstanceStatus> {
+export async function checkInstance(instance: InstanceConfig): Promise<InstanceStatus> {
   const origin = `https://${instance.host}`;
   const joinUrl = `${origin}/join`;
   const checkedAt = new Date().toISOString();
@@ -116,9 +121,6 @@ export async function checkInstance(
   let imageUrl: string | null = instance.imageOverride ?? null;
   if (!imageUrl && html) {
     imageUrl = extractImageUrl(html, origin);
-  }
-  if (!imageUrl) {
-    imageUrl = previousImageUrl;
   }
 
   return {
