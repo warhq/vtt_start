@@ -77,34 +77,48 @@ npm run typecheck
 
 ## Deploy till Cloudflare
 
-Kräver ett Cloudflare API-token med rättigheter för Workers, KV och (för
-domänbindning) zonen `nixxon.se`, satt som `CLOUDFLARE_API_TOKEN`.
+Deploy sker automatiskt via GitHub Actions (`.github/workflows/deploy.yml`)
+vid varje push till `main`. `wrangler.toml` deklarerar
+`vtt.nixxon.se` som custom domain (`routes = [{ pattern = "vtt.nixxon.se",
+custom_domain = true }]`), så Cloudflare skapar och hanterar DNS-posten
+automatiskt som en del av `wrangler deploy` — inga manuella API-anrop
+behövs, förutsatt att zonen `nixxon.se` ligger i samma Cloudflare-konto som
+deploy-tokenet.
 
-1. Skapa KV-namespace (en gång):
+### Engångssetup
+
+1. **Skapa ett Cloudflare API-token** (Dashboard → My Profile → API Tokens →
+   Create Custom Token) med:
+   - Account → Workers Scripts → Edit
+   - Account → Workers KV Storage → Edit
+   - Zone → Workers Routes → Edit
+   - Zone → DNS → Edit
+   - Zone Resources: den specifika zonen `nixxon.se`
+
+   Lägg till tokenet som en **repository secret** i GitHub: Settings →
+   Secrets and variables → Actions → New repository secret →
+   `CLOUDFLARE_API_TOKEN`. Lägg även till `CLOUDFLARE_ACCOUNT_ID` (finns i
+   Cloudflare Dashboard, högerspalten på översiktssidan för kontot).
+
+   Dela aldrig tokenet i chatt/issue/PR-text — det ska bara finnas som
+   GitHub-secret.
+
+2. **Skapa KV-namespace** (en gång, lokalt eller via `workflow_dispatch` i en
+   tillfällig debug-step — måste göras innan första deploy eftersom id:t ska
+   in i `wrangler.toml`):
 
    ```bash
-   npm run kv:create
+   CLOUDFLARE_API_TOKEN=... npm run kv:create
    ```
 
-   Klistra in `id` som skrivs ut i `wrangler.toml` (`[[kv_namespaces]]`).
+   Klistra in `id` som skrivs ut i `wrangler.toml` (`[[kv_namespaces]]`),
+   committa och pusha.
 
-2. Deploya Workern:
+3. Efter det: varje push/merge till `main` deployar automatiskt, inklusive
+   att `vtt.nixxon.se` pekas mot Workern.
 
-   ```bash
-   npm run deploy
-   ```
+### Manuell deploy (alternativ)
 
-3. Koppla domänen `vtt.nixxon.se` till Workern (Cloudflare Dashboard →
-   Workers & Pages → vtt-status → Settings → Domains & Routes → Add →
-   Custom Domain), eller via API:
-
-   ```bash
-   curl -s -X PUT \
-     -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-     -H "Content-Type: application/json" \
-     "https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/workers/domains" \
-     -d '{"hostname":"vtt.nixxon.se","service":"vtt-status","environment":"production","zone_id":"<ZONE_ID>"}'
-   ```
-
-   Cloudflare skapar och hanterar då DNS-posten för `vtt.nixxon.se`
-   automatiskt (proxied mot Workern).
+```bash
+CLOUDFLARE_API_TOKEN=... npm run deploy
+```

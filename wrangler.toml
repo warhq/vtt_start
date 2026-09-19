@@ -2,6 +2,14 @@ name = "vtt-status"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
 
+# Binds vtt.nixxon.se straight to this Worker. Cloudflare provisions and
+# manages the DNS record automatically as part of `wrangler deploy`, as long
+# as the nixxon.se zone lives in the same Cloudflare account as the deploy
+# token used.
+routes = [
+  { pattern = "vtt.nixxon.se", custom_domain = true },
+]
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
