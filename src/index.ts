@@ -1,29 +1,40 @@
 import { INSTANCES } from "./instances";
 import { checkInstance, type InstanceStatus } from "./foundry";
+import { syncInstanceImage, readCachedImage } from "./images";
 
 export interface Env {
   STATUS_KV: KVNamespace;
   ASSETS: Fetcher;
 }
 
-const STALE_AFTER_MS = 5 * 60 * 1000;
+// Slightly longer than the 10-minute cron interval, so a normal page load
+// doesn't trigger its own extra check-and-write cycle between cron runs —
+// this is only a safety net for a missed cron run, not a second scheduler.
+const STALE_AFTER_MS = 15 * 60 * 1000;
+const INSTANCE_IDS = new Set(INSTANCES.map((instance) => instance.id));
 
 function kvKey(id: string): string {
   return `status:${id}`;
 }
 
+/**
+ * Checks one instance, resolves its card image through the local cache
+ * (see images.ts — downloads + hashes it, keeping the last known-good copy
+ * if the instance is unreachable right now), and persists the combined
+ * result to KV.
+ */
+async function checkAndStore(env: Env, instance: (typeof INSTANCES)[number]): Promise<InstanceStatus> {
+  const result = await checkInstance(instance);
+  const imageUrl = await syncInstanceImage(env, instance.id, result.imageUrl);
+  const final: InstanceStatus = { ...result, imageUrl };
+  await env.STATUS_KV.put(kvKey(instance.id), JSON.stringify(final), {
+    expirationTtl: 3600,
+  });
+  return final;
+}
+
 async function runAllChecks(env: Env): Promise<InstanceStatus[]> {
-  return Promise.all(
-    INSTANCES.map(async (instance) => {
-      const prevRaw = await env.STATUS_KV.get(kvKey(instance.id));
-      const prev = prevRaw ? (JSON.parse(prevRaw) as InstanceStatus) : null;
-      const result = await checkInstance(instance, prev?.imageUrl ?? null);
-      await env.STATUS_KV.put(kvKey(instance.id), JSON.stringify(result), {
-        expirationTtl: 3600,
-      });
-      return result;
-    }),
-  );
+  return Promise.all(INSTANCES.map((instance) => checkAndStore(env, instance)));
 }
 
 async function handleStatus(env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -41,11 +52,7 @@ async function handleStatus(env: Env, ctx: ExecutionContext): Promise<Response> 
     } else {
       // First ever request for this instance: check synchronously so the
       // first visitor doesn't see a blank card.
-      const result = await checkInstance(instance, null);
-      await env.STATUS_KV.put(kvKey(instance.id), JSON.stringify(result), {
-        expirationTtl: 3600,
-      });
-      results.push(result);
+      results.push(await checkAndStore(env, instance));
     }
   }
 
@@ -64,12 +71,45 @@ async function handleStatus(env: Env, ctx: ExecutionContext): Promise<Response> 
   );
 }
 
+async function handleImage(env: Env, request: Request, instanceId: string): Promise<Response> {
+  if (!INSTANCE_IDS.has(instanceId)) {
+    return new Response("Not found", { status: 404 });
+  }
+
+  const cached = await readCachedImage(env, instanceId);
+  if (!cached) {
+    return new Response("Not found", { status: 404 });
+  }
+
+  const etag = `"${cached.meta.hash}"`;
+  const headers = {
+    "content-type": cached.meta.contentType,
+    "cache-control": "public, max-age=300",
+    etag,
+  };
+
+  if (request.headers.get("if-none-match") === etag) {
+    return new Response(null, { status: 304, headers });
+  }
+
+  return new Response(cached.bytes, { headers });
+}
+
+const IMAGE_PATH_PATTERN = /^\/api\/image\/([a-z0-9_-]+)$/i;
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
     if (url.pathname === "/api/status") {
       return handleStatus(env, ctx);
     }
+
+    const imageMatch = url.pathname.match(IMAGE_PATH_PATTERN);
+    if (imageMatch) {
+      return handleImage(env, request, imageMatch[1]);
+    }
+
     return env.ASSETS.fetch(request);
   },
 
